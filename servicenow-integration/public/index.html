@@ -115,6 +115,7 @@
         <div id="loginStatus" class="status-message"></div>
         
         <div class="toggle-text">
+            <a onclick="toggleForms('reset')">Forgot Password?</a><br><br>
             Don't have an account? <a onclick="toggleForms('signup')">Sign up</a>
         </div>
     </div>
@@ -155,6 +156,28 @@
         </div>
     </div>
 
+    <div id="resetSection" class="hidden fade-in">
+        <h2>Reset Password</h2>
+        <p class="subtitle">Enter your User ID and a new password.</p>
+        
+        <form id="resetForm">
+            <div class="input-group">
+                <label for="resetUserId">User ID</label>
+                <input type="text" id="resetUserId" placeholder="e.g. jdoe" required>
+            </div>
+            <div class="input-group">
+                <label for="resetNewPassword">New Password</label>
+                <input type="password" id="resetNewPassword" placeholder="Create a strong password" required>
+            </div>
+            <button type="submit">Reset Password</button>
+        </form>
+        <div id="resetStatus" class="status-message"></div>
+        
+        <div class="toggle-text">
+            Remembered it? <a onclick="toggleForms('login')">Sign in</a>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -167,7 +190,7 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    let mouse = { x: null, y: null, radius: 200 }; // Increased radius so they start pulling from further away
+    let mouse = { x: null, y: null, radius: 200 }; 
 
     window.addEventListener('mousemove', function(event) {
         mouse.x = event.x;
@@ -180,7 +203,6 @@
         initParticles();
     });
 
-    // Reset mouse position when it leaves the screen so particles return to normal
     window.addEventListener('mouseout', function() {
         mouse.x = undefined;
         mouse.y = undefined;
@@ -216,26 +238,24 @@
             let dy = mouse.y - this.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
             
-            // If the mouse is close, PULL the particles TOWARDS the cursor
             if (mouse.x != null && distance < mouse.radius) {
                 let forceDirectionX = dx / distance;
                 let forceDirectionY = dy / distance;
                 let force = (mouse.radius - distance) / mouse.radius;
                 
-                // Reduced the multiplier slightly so it looks like a smooth magnetic pull
                 let directionX = forceDirectionX * force * (this.density * 0.6);
                 let directionY = forceDirectionY * force * (this.density * 0.6);
                 
-                this.x += directionX; // <-- Changed from -= to +=
-                this.y += directionY; // <-- Changed from -= to +=
+                this.x += directionX; 
+                this.y += directionY; 
             } else {
                 if (this.x !== this.baseX) {
                     let dx = this.x - this.baseX;
-                    this.x -= dx / 20; // Smoothed out the return speed
+                    this.x -= dx / 20; 
                 }
                 if (this.y !== this.baseY) {
                     let dy = this.y - this.baseY;
-                    this.y -= dy / 20; // Smoothed out the return speed
+                    this.y -= dy / 20; 
                 }
             }
 
@@ -275,32 +295,32 @@
 </script>
 
 <script>
+    // Updated toggle logic to handle 3 forms
     function toggleForms(formToShow) {
-        const loginSection = document.getElementById('loginSection');
-        const signupSection = document.getElementById('signupSection');
-        const loginStatus = document.getElementById('loginStatus');
-        const signupStatus = document.getElementById('signupStatus');
+        const sections = ['loginSection', 'signupSection', 'resetSection'];
+        const statuses = ['loginStatus', 'signupStatus', 'resetStatus'];
+        
+        // Clear all status messages
+        statuses.forEach(id => {
+            document.getElementById(id).className = 'status-message';
+            document.getElementById(id).innerHTML = '';
+        });
 
-        loginStatus.className = 'status-message';
-        signupStatus.className = 'status-message';
-        loginStatus.innerHTML = '';
-        signupStatus.innerHTML = '';
-
-        if (formToShow === 'signup') {
-            loginSection.classList.add('hidden');
-            signupSection.classList.remove('hidden');
-            signupSection.classList.remove('fade-in');
-            void signupSection.offsetWidth; 
-            signupSection.classList.add('fade-in');
-        } else {
-            signupSection.classList.add('hidden');
-            loginSection.classList.remove('hidden');
-            loginSection.classList.remove('fade-in');
-            void loginSection.offsetWidth; 
-            loginSection.classList.add('fade-in');
-        }
+        // Hide all, then show the requested one with an animation
+        sections.forEach(id => {
+            const el = document.getElementById(id);
+            if (id === formToShow + 'Section') {
+                el.classList.remove('hidden');
+                el.classList.remove('fade-in');
+                void el.offsetWidth; // Trigger reflow
+                el.classList.add('fade-in');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
     }
 
+    // --- HANDLE LOGIN SUBMISSION ---
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const statusDiv = document.getElementById('loginStatus');
@@ -341,6 +361,7 @@
         }
     });
 
+    // --- HANDLE SIGN-UP SUBMISSION ---
     document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const statusDiv = document.getElementById('signupStatus');
@@ -372,6 +393,50 @@
                 statusDiv.innerHTML = `<strong>Success!</strong> Account created securely.`;
                 statusDiv.className = 'status-message alert-success';
                 document.getElementById('signupForm').reset();
+                setTimeout(() => { toggleForms('login'); }, 2000);
+            } else {
+                statusDiv.innerHTML = `<strong>Error:</strong> ${result.error}`;
+                statusDiv.className = 'status-message alert-error';
+            }
+        } catch (error) {
+            statusDiv.innerHTML = '<strong>Connection Error:</strong> Unable to reach the server.';
+            statusDiv.className = 'status-message alert-error';
+        } finally {
+            btn.innerText = originalBtnText;
+            btn.style.opacity = '1';
+        }
+    });
+
+    // --- HANDLE RESET PASSWORD SUBMISSION ---
+    document.getElementById('resetForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusDiv = document.getElementById('resetStatus');
+        const btn = e.target.querySelector('button');
+        
+        const originalBtnText = btn.innerText;
+        btn.innerText = 'Resetting...';
+        btn.style.opacity = '0.8';
+        statusDiv.className = 'status-message';
+        
+        const resetData = {
+            userId: document.getElementById('resetUserId').value,
+            newPassword: document.getElementById('resetNewPassword').value
+        };
+
+        try {
+            const response = await fetch('/api/reset-password', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(resetData)
+            });
+
+            const result = await response.json();
+            
+            if (response.ok) {
+                statusDiv.innerHTML = `<strong>Success!</strong> Password updated.`;
+                statusDiv.className = 'status-message alert-success';
+                document.getElementById('resetForm').reset();
+                // Switch back to login page automatically
                 setTimeout(() => { toggleForms('login'); }, 2000);
             } else {
                 statusDiv.innerHTML = `<strong>Error:</strong> ${result.error}`;

@@ -83,6 +83,40 @@ app.post('/api/login', async (req, res) => {
         }
     }
 });
+// --- ROUTE 3: RESET PASSWORD ---
+app.put('/api/reset-password', async (req, res) => {
+    const { userId, newPassword } = req.body;
+
+    // Use your API User credentials from the .env file
+    const credentials = `${process.env.SERVICENOW_USERNAME}:${process.env.SERVICENOW_PASSWORD}`;
+    const encodedCredentials = Buffer.from(credentials).toString('base64');
+
+    try {
+        const response = await axios({
+            method: 'PUT',
+            // Notice the namespace 1656894 and the /reset-password path
+            url: `${process.env.SERVICENOW_INSTANCE}/api/1656894/custom_portal_auth/reset-password`,
+            headers: {
+                'Authorization': `Basic ${encodedCredentials}`,
+                'Content-Type': 'application/json'
+            },
+            data: {
+                user_name: userId,
+                new_password: newPassword
+            }
+        });
+
+        res.status(200).json({ message: 'Password updated successfully!' });
+    } catch (error) {
+        console.error("Reset Error:", error.response ? error.response.data : error.message);
+        // If ServiceNow sends a 404 (User not found), pass that specific error to the frontend
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: 'User ID not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to reset password' });
+        }
+    }
+});
 
 // Start Server
 const PORT = process.env.PORT || 3000;
