@@ -117,6 +117,67 @@ app.put('/api/reset-password', async (req, res) => {
         }
     }
 });
+// --- ROUTE 4: AI-POWERED IT TICKET CREATION ---
+app.post('/api/create-ticket', async (req, res) => {
+    const { userId, description } = req.body;
+
+    try {
+        // 1. Ask Hugging Face to analyze the sentiment of the text
+        // Using a fast, standard model for positive/negative sentiment
+        const hfResponse = await axios({
+            method: 'POST',
+            url: 'https://api-inference.huggingface.co/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english',
+            headers: {
+                'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            data: { inputs: description }
+        });
+
+        // Extract the result (e.g., "NEGATIVE" or "POSITIVE")
+        const sentiment = hfResponse.data[0][0].label;
+        const score = hfResponse.data[0][0].score;
+
+        // 2. Triage Logic: Determine ServiceNow Urgency
+        // Urgency 1 = High, Urgency 2 = Medium, Urgency 3 = Low
+        let ticketUrgency = "3"; // Default to Low
+        let aiNote = `AI Sentiment Analysis: ${sentiment} (Confidence: ${(score * 100).toFixed(1)}%). Normal priority assigned.`;
+
+        if (sentiment === 'NEGATIVE' && score > 0.8) {
+            ticketUrgency = "1"; // High urgency for highly frustrated users
+            aiNote = `AI Sentiment Analysis: ${sentiment} (Confidence: ${(score * 100).toFixed(1)}%). Escalated to HIGH priority due to user frustration.`;
+        }
+
+        // 3. Create the Incident in ServiceNow
+        const snCredentials = `${process.env.SERVICENOW_USERNAME}:${process.env.SERVICENOW_PASSWORD}`;
+        const encodedSnAuth = Buffer.from(snCredentials).toString('base64');
+
+        const snResponse = await axios({
+            method: 'POST',
+            url: `${process.env.SERVICENOW_INSTANCE}/api/now/table/incident`,
+            headers: {
+                'Authorization': `Basic ${encodedSnAuth}`,
+                'Content-Type': 'application/json'
+            },
+            data: {
+                short_description: `Portal Issue reported by ${userId}`,
+                description: `User: ${userId}\nIssue: ${description}\n\n--- System Notes ---\n${aiNote}`,
+                urgency: ticketUrgency
+            }
+        });
+
+        // 4. Send the successful ticket number back to the frontend
+        res.status(201).json({ 
+            message: 'Ticket created successfully!', 
+            ticketNumber: snResponse.data.result.number,
+            aiUrgency: ticketUrgency === "1" ? "High" : "Normal"
+        });
+
+    } catch (error) {
+        console.error("Ticket Creation Error:", error.response ? error.response.data : error.message);
+        res.status(500).json({ error: 'Failed to process and create ticket.' });
+    }
+});
 
 // Start Server
 const PORT = process.env.PORT || 3000;
