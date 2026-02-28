@@ -9,7 +9,6 @@
         :root {
             --primary: #4f46e5;
             --primary-hover: #4338ca;
-            /* Updated to a dark theme for the glowing particles */
             --bg-dark: #0f172a; 
             --text-main: #0f172a;
             --text-muted: #64748b;
@@ -26,10 +25,9 @@
             height: 100vh; 
             margin: 0; 
             color: var(--text-main);
-            overflow: hidden; /* Prevents scrollbars from the canvas */
+            overflow: hidden; 
         }
 
-        /* The canvas sits fixed in the background */
         #particleCanvas {
             position: fixed;
             top: 0;
@@ -40,7 +38,6 @@
         }
 
         .auth-container { 
-            /* Glassmorphism effect so particles glow behind the card */
             background: rgba(255, 255, 255, 0.95); 
             backdrop-filter: blur(12px);
             padding: 40px; 
@@ -49,7 +46,7 @@
             width: 100%; 
             max-width: 380px; 
             box-sizing: border-box;
-            z-index: 1; /* Keeps card above the canvas */
+            z-index: 1; 
         }
 
         .logo-placeholder { text-align: center; margin-bottom: 24px; }
@@ -165,14 +162,12 @@
     const ctx = canvas.getContext('2d');
 
     let particlesArray = [];
-    const colors = ['rgba(0, 240, 255, 0.8)', 'rgba(255, 77, 109, 0.8)']; // Cyan and Pink/Red
+    const colors = ['rgba(0, 240, 255, 0.8)', 'rgba(255, 77, 109, 0.8)']; 
 
-    // Set canvas to full screen
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Track mouse position
-    let mouse = { x: null, y: null, radius: 150 };
+    let mouse = { x: null, y: null, radius: 200 }; // Increased radius so they start pulling from further away
 
     window.addEventListener('mousemove', function(event) {
         mouse.x = event.x;
@@ -185,6 +180,12 @@
         initParticles();
     });
 
+    // Reset mouse position when it leaves the screen so particles return to normal
+    window.addEventListener('mouseout', function() {
+        mouse.x = undefined;
+        mouse.y = undefined;
+    });
+
     class Particle {
         constructor(x, y, directionX, directionY, size, color) {
             this.x = x;
@@ -195,13 +196,12 @@
             this.color = color;
             this.baseX = this.x;
             this.baseY = this.y;
-            this.density = (Math.random() * 30) + 1;
+            this.density = (Math.random() * 20) + 1;
         }
 
         draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
-            // Add a glowing effect to the particles
             ctx.shadowBlur = 15;
             ctx.shadowColor = this.color;
             ctx.fillStyle = this.color;
@@ -209,45 +209,42 @@
         }
 
         update() {
-            // Check canvas borders to bounce
             if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
             if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
 
-            // Collision detection with mouse (Cursor interaction)
             let dx = mouse.x - this.x;
             let dy = mouse.y - this.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
             
-            // If the mouse is close, push the particles away
-            if (distance < mouse.radius) {
+            // If the mouse is close, PULL the particles TOWARDS the cursor
+            if (mouse.x != null && distance < mouse.radius) {
                 let forceDirectionX = dx / distance;
                 let forceDirectionY = dy / distance;
                 let force = (mouse.radius - distance) / mouse.radius;
-                let directionX = forceDirectionX * force * this.density;
-                let directionY = forceDirectionY * force * this.density;
                 
-                this.x -= directionX;
-                this.y -= directionY;
+                // Reduced the multiplier slightly so it looks like a smooth magnetic pull
+                let directionX = forceDirectionX * force * (this.density * 0.6);
+                let directionY = forceDirectionY * force * (this.density * 0.6);
+                
+                this.x += directionX; // <-- Changed from -= to +=
+                this.y += directionY; // <-- Changed from -= to +=
             } else {
-                // Return to normal movement
                 if (this.x !== this.baseX) {
                     let dx = this.x - this.baseX;
-                    this.x -= dx / 10;
+                    this.x -= dx / 20; // Smoothed out the return speed
                 }
                 if (this.y !== this.baseY) {
                     let dy = this.y - this.baseY;
-                    this.y -= dy / 10;
+                    this.y -= dy / 20; // Smoothed out the return speed
                 }
             }
 
-            // Move the particle
             this.x += this.directionX;
             this.y += this.directionY;
             this.draw();
         }
     }
 
-    // Initialize particle array
     function initParticles() {
         particlesArray = [];
         let numberOfParticles = (canvas.height * canvas.width) / 9000;
@@ -264,7 +261,6 @@
         }
     }
 
-    // Animation Loop
     function animateParticles() {
         requestAnimationFrame(animateParticles);
         ctx.clearRect(0, 0, innerWidth, innerHeight);
